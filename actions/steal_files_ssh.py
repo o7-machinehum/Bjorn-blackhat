@@ -6,7 +6,7 @@ import os
 import paramiko
 import logging
 import time
-from rich.console import Console
+# from rich.console import Console
 from threading import Timer
 from shared import SharedData
 from logger import Logger

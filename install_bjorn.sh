@@ -87,7 +87,7 @@ check_success() {
 # # Check system compatibility
 # check_system_compatibility() {
 #     log "INFO" "Checking system compatibility..."
-    
+
 #     # Check if running on Raspberry Pi
 #     if ! grep -q "Raspberry Pi" /proc/cpuinfo; then
 #         log "WARNING" "This system might not be a Raspberry Pi. Continue anyway? (y/n)"
@@ -96,14 +96,14 @@ check_success() {
 #             clean_exit 1
 #         fi
 #     fi
-    
+
 #     check_success "System compatibility check completed"
 # }
 # Check system compatibility
 check_system_compatibility() {
     log "INFO" "Checking system compatibility..."
     local should_ask_confirmation=false
-    
+
     # Check if running on Raspberry Pi
     if ! grep -q "Raspberry Pi" /proc/cpuinfo; then
         log "WARNING" "This system might not be a Raspberry Pi"
@@ -133,14 +133,14 @@ check_system_compatibility() {
     # Check OS version
     if [ -f "/etc/os-release" ]; then
         source /etc/os-release
-        
+
         # Verify if it's Raspbian
         if [ "$NAME" != "Raspbian GNU/Linux" ]; then
             log "WARNING" "Different OS detected. Recommended: Raspbian GNU/Linux, Found: ${NAME}"
             echo -e "${YELLOW}Your system is not running Raspbian GNU/Linux.${NC}"
             should_ask_confirmation=true
         fi
-        
+
         # Compare versions (expecting Bookworm = 12)
         expected_version="12"
         if [ "$VERSION_ID" != "$expected_version" ]; then
@@ -168,7 +168,7 @@ check_system_compatibility() {
         echo -e "${YELLOW}This script was tested with armhf architecture${NC}"
         should_ask_confirmation=true
     fi
-    
+
     # Additional Pi Zero specific checks if possible
     if ! (grep -q "Pi Zero" /proc/cpuinfo || grep -q "BCM2835" /proc/cpuinfo); then
         log "WARNING" "Could not confirm if this is a Raspberry Pi Zero"
@@ -200,10 +200,10 @@ check_system_compatibility() {
 # Install system dependencies
 install_dependencies() {
     log "INFO" "Installing system dependencies..."
-    
+
     # Update package list
     apt-get update
-    
+
     # List of required packages based on README
     packages=(
         "python3-pip"
@@ -229,14 +229,14 @@ install_dependencies() {
         "libatlas-base-dev"
         "build-essential"
     )
-    
+
     # Install packages
     for package in "${packages[@]}"; do
         log "INFO" "Installing $package..."
         apt-get install -y "$package"
         check_success "Installed $package"
     done
-    
+
     # Update nmap scripts
     nmap --script-updatedb
     check_success "Dependencies installation completed"
@@ -276,18 +276,18 @@ EOF
 # Configure SPI and I2C
 configure_interfaces() {
     log "INFO" "Configuring SPI and I2C interfaces..."
-    
+
     # Enable SPI and I2C using raspi-config
     raspi-config nonint do_spi 0
     raspi-config nonint do_i2c 0
-    
+
     check_success "Interface configuration completed"
 }
 
 # Setup BJORN
 setup_bjorn() {
     log "INFO" "Setting up BJORN..."
-    
+
     # Create BJORN user if it doesn't exist
     if ! id -u $BJORN_USER >/dev/null 2>&1; then
         adduser --disabled-password --gecos "" $BJORN_USER
@@ -320,14 +320,14 @@ setup_bjorn() {
 
     # Install requirements with --break-system-packages flag
     log "INFO" "Installing Python requirements..."
-    
+
     pip3 install -r requirements.txt --break-system-packages
     check_success "Installed Python requirements"
 
     # Set correct permissions
     chown -R $BJORN_USER:$BJORN_USER /home/$BJORN_USER/Bjorn
     chmod -R 755 /home/$BJORN_USER/Bjorn
-    
+
     # Add bjorn user to necessary groups
     usermod -a -G spi,gpio,i2c $BJORN_USER
     check_success "Added bjorn user to required groups"
@@ -337,7 +337,7 @@ setup_bjorn() {
 # Configure services
 setup_services() {
     log "INFO" "Setting up system services..."
-    
+
     # Create kill_port_8000.sh script
     cat > $BJORN_PATH/kill_port_8000.sh << 'EOF'
 #!/bin/bash
@@ -485,14 +485,14 @@ EOF
 # Verify installation
 verify_installation() {
     log "INFO" "Verifying installation..."
-    
+
     # Check if services are running
     if ! systemctl is-active --quiet bjorn.service; then
         log "WARNING" "BJORN service is not running"
     else
         log "SUCCESS" "BJORN service is running"
     fi
-    
+
     # Check web interface
     sleep 5
     if curl -s http://localhost:8000 > /dev/null; then
@@ -537,7 +537,7 @@ main() {
     echo "3. epd2in13_V3"
     echo "4. epd2in13_V4"
     echo "5. epd2in7"
-    
+
     while true; do
         read -p "Enter your choice (1-4): " epd_choice
         case $epd_choice in

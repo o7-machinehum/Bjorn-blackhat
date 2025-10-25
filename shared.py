@@ -1,9 +1,9 @@
 #shared.py
 # Description:
 # This file, shared.py, is a core component responsible for managing shared resources and data for different modules in the Bjorn project.
-# It handles the initialization and configuration of paths, logging, fonts, and images. Additionally, it sets up the environment, 
+# It handles the initialization and configuration of paths, logging, fonts, and images. Additionally, it sets up the environment,
 # creates necessary directories and files, and manages the loading and saving of configuration settings.
-# 
+#
 # Key functionalities include:
 # - Initializing various paths used by the application, including directories for configuration, data, actions, web resources, and logs.
 # - Setting up the environment, including the e-paper display, network knowledge base, and actions JSON configuration.
@@ -21,20 +21,20 @@ import time
 import csv
 import logging
 import subprocess
-from PIL import Image, ImageFont 
+# from PIL import Image, ImageFont
 from logger import Logger
 from epd_helper import EPDHelper
 
 
-logger = Logger(name="shared.py", level=logging.DEBUG) # Create a logger object 
+logger = Logger(name="shared.py", level=logging.DEBUG) # Create a logger object
 
 class SharedData:
     """Shared data between the different modules."""
     def __init__(self):
         self.initialize_paths() # Initialize the paths used by the application
-        self.status_list = [] 
+        self.status_list = []
         self.last_comment_time = time.time() # Last time a comment was displayed
-        self.default_config = self.get_default_config() # Default configuration of the application  
+        self.default_config = self.get_default_config() # Default configuration of the application
         self.config = self.default_config.copy() # Configuration of the application
         # Load existing configuration first
         self.load_config()
@@ -43,9 +43,9 @@ class SharedData:
         self.update_mac_blacklist()
         self.setup_environment() # Setup the environment
         self.initialize_variables() # Initialize the variables used by the application
-        self.create_livestatusfile() 
-        self.load_fonts() # Load the fonts used by the application
-        self.load_images() # Load the images used by the application
+        self.create_livestatusfile()
+        # self.load_fonts() # Load the fonts used by the application
+        # self.load_images() # Load the images used by the application
         # self.create_initial_image() # Create the initial image displayed on the screen
 
     def initialize_paths(self):
@@ -127,7 +127,7 @@ class SharedData:
             "log_warning": True,
             "log_error": True,
             "log_critical": True,
-            
+
             "startup_delay": 10,
             "web_delay": 2,
             "screen_delay": 1,
@@ -139,24 +139,24 @@ class SharedData:
             "scan_interval": 180,
             "scan_vuln_interval": 900,
             "failed_retry_delay": 600,
-            "success_retry_delay": 900, 
+            "success_retry_delay": 900,
             "ref_width" :122 ,
             "ref_height" : 250,
             "epd_type": "epd2in13_V4",
-            
-            
+
+
             "__title_lists__": "List Settings",
             "portlist": [20, 21, 22, 23, 25, 53, 69, 80, 110, 111, 135, 137, 139, 143, 161, 162, 389, 443, 445, 512, 513, 514, 587, 636, 993, 995, 1080, 1433, 1521, 2049, 3306, 3389, 5000, 5001, 5432, 5900, 8080, 8443, 9090, 10000],
             "mac_scan_blacklist": [],
             "ip_scan_blacklist": [],
             "steal_file_names": ["ssh.csv","hack.txt"],
             "steal_file_extensions": [".bjorn",".hack",".flag"],
-            
+
             "__title_network__": "Network",
             "nmap_scan_aggressivity": "-T2",
             "portstart": 1,
             "portend": 2,
-            
+
             "__title_timewaits__": "Time Wait Settings",
             "timewait_smb": 0,
             "timewait_ssh": 0,
@@ -172,7 +172,7 @@ class SharedData:
         if mac_address:
             if 'mac_scan_blacklist' not in self.config:
                 self.config['mac_scan_blacklist'] = []
-            
+
             if mac_address not in self.config['mac_scan_blacklist']:
                 self.config['mac_scan_blacklist'].append(mac_address)
                 logger.info(f"Added local MAC address {mac_address} to blacklist")
@@ -187,20 +187,20 @@ class SharedData:
         """Get the MAC address of the primary network interface (usually wlan0 or eth0)."""
         try:
             # First try wlan0 (wireless interface)
-            result = subprocess.run(['cat', '/sys/class/net/wlan0/address'], 
+            result = subprocess.run(['cat', '/sys/class/net/wlan0/address'],
                                  capture_output=True, text=True)
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip().lower()
-            
+
             # If wlan0 fails, try eth0 (ethernet interface)
-            result = subprocess.run(['cat', '/sys/class/net/eth0/address'], 
+            result = subprocess.run(['cat', '/sys/class/net/eth0/address'],
                                  capture_output=True, text=True)
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip().lower()
-            
+
             logger.warning("Could not find MAC address for wlan0 or eth0")
             return None
-            
+
         except Exception as e:
             logger.error(f"Error getting Raspberry Pi MAC address: {e}")
             return None
@@ -214,8 +214,8 @@ class SharedData:
         self.generate_actions_json()
         self.delete_webconsolelog()
         self.initialize_csv()
-        self.initialize_epd_display()
-    
+        # self.initialize_epd_display()
+
 
     # def initialize_epd_display(self):
     #     """Initialize the e-paper display."""
@@ -271,13 +271,13 @@ class SharedData:
         except Exception as e:
             logger.error(f"Error initializing EPD display: {e}")
             raise
-        
+
     def initialize_variables(self):
         """Initialize the variables."""
         self.should_exit = False
         self.display_should_exit = False
-        self.orchestrator_should_exit = False 
-        self.webapp_should_exit = False 
+        self.orchestrator_should_exit = False
+        self.webapp_should_exit = False
         self.bjorn_instance = None
         self.wifichanged = False
         self.bluetooth_active = False
@@ -288,11 +288,11 @@ class SharedData:
         self.bjornorch_status = "IDLE"
         self.bjornstatustext = "IDLE"
         self.bjornstatustext2 = "Awakening..."
-        self.scale_factor_x = self.width / self.ref_width
-        self.scale_factor_y = self.height / self.ref_height
-        self.text_frame_top = int(88 * self.scale_factor_x)
-        self.text_frame_bottom = int(159 * self.scale_factor_y)
-        self.y_text = self.text_frame_top + 2
+        # self.scale_factor_x = self.width / self.ref_width
+        # self.scale_factor_y = self.height / self.ref_height
+        # self.text_frame_top = int(88 * self.scale_factor_x)
+        # self.text_frame_bottom = int(159 * self.scale_factor_y)
+        # self.y_text = self.text_frame_top + 2
         self.targetnbr = 0
         self.portnbr = 0
         self.vulnnbr = 0
@@ -367,7 +367,7 @@ class SharedData:
                         logger.error(f"Error importing module {module_name}: {e}")
                     except Exception as e:
                         logger.error(f"Unexpected error while processing module {module_name}: {e}")
-            
+
             try:
                 with open(self.actions_file, 'w') as file:
                     json.dump(actions_config, file, indent=4)
@@ -561,7 +561,7 @@ class SharedData:
         except AttributeError:
             logger.warning(f"The image for status {self.bjornorch_status} is not available, using IDLE image by default.")
             self.bjornstatusimage = self.attack
-        
+
         self.bjornstatustext = self.bjornorch_status  # Mettre à jour le texte du statut
 
 

@@ -3,13 +3,13 @@
 # It scans for vulnerabilities on various ports and saves the results and progress.
 
 import os
-import pandas as pd
+# import pandas as pd
 import subprocess
 import logging
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from rich.console import Console
-from rich.progress import Progress, BarColumn, TextColumn
+# from rich.console import Console
+# from rich.progress import Progress, BarColumn, TextColumn
 from shared import SharedData
 from logger import Logger
 
@@ -28,8 +28,8 @@ class NmapVulnScanner:
     def __init__(self, shared_data):
         self.shared_data = shared_data
         self.scan_results = []
-        self.summary_file = self.shared_data.vuln_summary_file
-        self.create_summary_file()
+        # self.summary_file = self.shared_data.vuln_summary_file
+        # self.create_summary_file()
         logger.debug("NmapVulnScanner initialized.")
 
     def create_summary_file(self):
@@ -48,16 +48,16 @@ class NmapVulnScanner:
         try:
             # Read existing data
             df = pd.read_csv(self.summary_file)
-            
+
             # Create new data entry
             new_data = pd.DataFrame([{"IP": ip, "Hostname": hostname, "MAC Address": mac, "Port": port, "Vulnerabilities": vulnerabilities}])
-            
+
             # Append new data
             df = pd.concat([df, new_data], ignore_index=True)
-            
+
             # Remove duplicates based on IP and MAC Address, keeping the last occurrence
             df.drop_duplicates(subset=["IP", "MAC Address"], keep='last', inplace=True)
-            
+
             # Save the updated data back to the summary file
             df.to_csv(self.summary_file, index=False)
         except Exception as e:
@@ -79,7 +79,7 @@ class NmapVulnScanner:
             combined_result += result.stdout
 
             vulnerabilities = self.parse_vulnerabilities(result.stdout)
-            self.update_summary_file(ip, hostname, mac, ",".join(ports), vulnerabilities)
+            # self.update_summary_file(ip, hostname, mac, ",".join(ports), vulnerabilities)
         except Exception as e:
             logger.error(f"Error scanning {ip}: {e}")
             success = False  # Mark as failed if an error occurs
@@ -127,15 +127,15 @@ class NmapVulnScanner:
             result_dir = self.shared_data.vulnerabilities_dir
             os.makedirs(result_dir, exist_ok=True)
             result_file = os.path.join(result_dir, f"{sanitized_mac_address}_{ip}_vuln_scan.txt")
-            
+
             # Open the file in write mode to clear its contents if it exists, then close it
             if os.path.exists(result_file):
                 open(result_file, 'w').close()
-            
+
             # Write the new scan result to the file
             with open(result_file, 'w') as file:
                 file.write(scan_result)
-            
+
             logger.info(f"Results saved to {result_file}")
         except Exception as e:
             logger.error(f"Error saving scan results for {ip}: {e}")
@@ -163,25 +163,26 @@ if __name__ == "__main__":
         # Load the netkbfile and get the IPs to scan
         ips_to_scan = shared_data.read_data()  # Use your existing method to read the data
 
-        # Execute the scan on each IP with concurrency
-        with Progress(
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            "[progress.percentage]{task.percentage:>3.1f}%",
-            console=Console()
-        ) as progress:
-            task = progress.add_task("Scanning vulnerabilities...", total=len(ips_to_scan))
-            futures = []
-            with ThreadPoolExecutor(max_workers=2) as executor:  # Adjust the number of workers for RPi Zero
-                for row in ips_to_scan:
-                    if row["Alive"] == '1':  # Check if the host is alive
-                        ip = row["IPs"]
-                        futures.append(executor.submit(nmap_vuln_scanner.execute, ip, row, b_status))
+        # # Execute the scan on each IP with concurrency
+        # with Progress(
+        #     TextColumn("[progress.description]{task.description}"),
+        #     BarColumn(),
+        #     "[progress.percentage]{task.percentage:>3.1f}%",
+        #     console=Console()
+        # ) as progress:
 
-                for future in as_completed(futures):
-                    progress.update(task, advance=1)
+        # task = progress.add_task("Scanning vulnerabilities...", total=len(ips_to_scan))
+        futures = []
+        with ThreadPoolExecutor(max_workers=2) as executor:  # Adjust the number of workers for RPi Zero
+            for row in ips_to_scan:
+                if row["Alive"] == '1':  # Check if the host is alive
+                    ip = row["IPs"]
+                    futures.append(executor.submit(nmap_vuln_scanner.execute, ip, row, b_status))
 
-        nmap_vuln_scanner.save_summary()
+            # for future in as_completed(futures):
+            #     progress.update(task, advance=1)
+
+        # nmap_vuln_scanner.save_summary()
         logger.info(f"Total scans performed: {len(nmap_vuln_scanner.scan_results)}")
         exit(len(nmap_vuln_scanner.scan_results))
     except Exception as e:

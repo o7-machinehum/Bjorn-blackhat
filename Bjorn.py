@@ -1,9 +1,9 @@
 #bjorn.py
 # This script defines the main execution flow for the Bjorn application. It initializes and starts
-# various components such as network scanning, display, and web server functionalities. The Bjorn 
+# various components such as network scanning, display, and web server functionalities. The Bjorn
 # class manages the primary operations, including initiating network scans and orchestrating tasks.
 # The script handles startup delays, checks for Wi-Fi connectivity, and coordinates the execution of
-# scanning and orchestrator tasks using semaphores to limit concurrent threads. It also sets up 
+# scanning and orchestrator tasks using semaphores to limit concurrent threads. It also sets up
 # signal handlers to ensure a clean exit when the application is terminated.
 
 # Functions:
@@ -22,7 +22,7 @@ import time
 import sys
 import subprocess
 from init_shared import shared_data
-from display import Display, handle_exit_display
+# from display import Display, handle_exit_display
 from comment import Commentaireia
 from webapp import web_thread, handle_exit_web
 from orchestrator import Orchestrator
@@ -97,18 +97,17 @@ class Bjorn:
 
     def is_wifi_connected(self):
         """Checks for Wi-Fi connectivity using the nmcli command."""
-        result = subprocess.Popen(['nmcli', '-t', '-f', 'active', 'dev', 'wifi'], stdout=subprocess.PIPE, text=True).communicate()[0]
-        self.wifi_connected = 'yes' in result
-        return self.wifi_connected
+        # TODO: Fix this
+        return True
 
-    
-    @staticmethod
-    def start_display():
-        """Start the display thread"""
-        display = Display(shared_data)
-        display_thread = threading.Thread(target=display.run)
-        display_thread.start()
-        return display_thread
+
+    # @staticmethod
+    # def start_display():
+    #     """Start the display thread"""
+    #     display = Display(shared_data)
+    #     display_thread = threading.Thread(target=display.run)
+    #     display_thread.start()
+    #     return display_thread
 
 def handle_exit(sig, frame, display_thread, bjorn_thread, web_thread):
     """Handles the termination of the main, display, and web threads."""
@@ -116,7 +115,7 @@ def handle_exit(sig, frame, display_thread, bjorn_thread, web_thread):
     shared_data.orchestrator_should_exit = True  # Ensure orchestrator stops
     shared_data.display_should_exit = True  # Ensure display stops
     shared_data.webapp_should_exit = True  # Ensure web server stops
-    handle_exit_display(sig, frame, display_thread)
+    # handle_exit_display(sig, frame, display_thread)
     if display_thread.is_alive():
         display_thread.join()
     if bjorn_thread.is_alive():
@@ -135,9 +134,9 @@ if __name__ == "__main__":
         logger.info("Loading shared data config...")
         shared_data.load_config()
 
-        logger.info("Starting display thread...")
-        shared_data.display_should_exit = False  # Initialize display should_exit
-        display_thread = Bjorn.start_display()
+        # logger.info("Starting display thread...")
+        # shared_data.display_should_exit = False  # Initialize display should_exit
+        # display_thread = Bjorn.start_display()
 
         logger.info("Starting Bjorn thread...")
         bjorn = Bjorn(shared_data)
@@ -149,8 +148,8 @@ if __name__ == "__main__":
             logger.info("Starting the web server...")
             web_thread.start()
 
-        signal.signal(signal.SIGINT, lambda sig, frame: handle_exit(sig, frame, display_thread, bjorn_thread, web_thread))
-        signal.signal(signal.SIGTERM, lambda sig, frame: handle_exit(sig, frame, display_thread, bjorn_thread, web_thread))
+        signal.signal(signal.SIGINT, lambda sig, frame: handle_exit(sig, frame, bjorn_thread, web_thread))
+        signal.signal(signal.SIGTERM, lambda sig, frame: handle_exit(sig, frame, bjorn_thread, web_thread))
 
     except Exception as e:
         logger.error(f"An exception occurred during thread start: {e}")

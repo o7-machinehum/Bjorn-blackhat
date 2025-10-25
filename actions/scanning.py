@@ -5,17 +5,17 @@
 import os
 import threading
 import csv
-import pandas as pd
+# import pandas as pd
 import socket
 import netifaces
 import time
 import glob
 import logging
 from datetime import datetime
-from rich.console import Console
-from rich.table import Table
-from rich.text import Text
-from rich.progress import Progress
+# from rich.console import Console
+# from rich.table import Table
+# from rich.text import Text
+# from rich.progress import Progress
 from getmac import get_mac_address as gma
 from shared import SharedData
 from logger import Logger
@@ -42,7 +42,7 @@ class NetworkScanner:
         self.blacklistcheck = shared_data.blacklistcheck
         self.mac_scan_blacklist = shared_data.mac_scan_blacklist
         self.ip_scan_blacklist = shared_data.ip_scan_blacklist
-        self.console = Console()
+        # self.console = Console()
         self.lock = threading.Lock()
         self.currentdir = shared_data.currentdir
         self.semaphore = threading.Semaphore(200)  # Limit the number of active threads to 20
@@ -169,7 +169,7 @@ class NetworkScanner:
                     mac, ip, hostname, ports = data
                     if not mac or mac == "STANDALONE" or ip == "STANDALONE" or hostname == "STANDALONE":
                         continue
-                    
+
                     # Check if MAC address is "00:00:00:00:00:00"
                     if mac == "00:00:00:00:00:00":
                         continue
@@ -227,24 +227,24 @@ class NetworkScanner:
             except Exception as e:
                 self.logger.error(f"Error in update_netkb: {e}")
 
-    def display_csv(self, file_path):
-        """
-        Displays the contents of the specified CSV file using Rich for enhanced visualization.
-        """
-        with self.lock:
-            try:
-                table = Table(title=f"Contents of {file_path}", show_lines=True)
-                with open(file_path, 'r') as file:
-                    reader = csv.reader(file)
-                    headers = next(reader)
-                    for header in headers:
-                        table.add_column(header, style="cyan", no_wrap=True)
-                    for row in reader:
-                        formatted_row = [Text(cell, style="green bold") if cell else Text("", style="on red") for cell in row]
-                        table.add_row(*formatted_row)
-                self.console.print(table)
-            except Exception as e:
-                self.logger.error(f"Error in display_csv: {e}")
+    # def display_csv(self, file_path):
+    #     """
+    #     Displays the contents of the specified CSV file using Rich for enhanced visualization.
+    #     """
+    #     with self.lock:
+    #         try:
+    #             # table = Table(title=f"Contents of {file_path}", show_lines=True)
+    #             with open(file_path, 'r') as file:
+    #                 reader = csv.reader(file)
+    #                 headers = next(reader)
+    #                 for header in headers:
+    #                     table.add_column(header, style="cyan", no_wrap=True)
+    #                 for row in reader:
+    #                     formatted_row = [Text(cell, style="green bold") if cell else Text("", style="on red") for cell in row]
+    #                     table.add_row(*formatted_row)
+    #             self.console.print(table)
+    #         except Exception as e:
+    #             self.logger.error(f"Error in display_csv: {e}")
 
     def get_network(self):
         """
@@ -410,12 +410,12 @@ class NetworkScanner:
             time.sleep(7)
             self.ip_data = self.outer_instance.GetIpFromCsv(self.outer_instance, self.csv_scan_file)
             self.open_ports = {ip: [] for ip in self.ip_data.ip_list}
-            with Progress() as progress:
-                task = progress.add_task("[cyan]Scanning IPs...", total=len(self.ip_data.ip_list))
-                for ip in self.ip_data.ip_list:
-                    progress.update(task, advance=1)
-                    port_scanner = self.outer_instance.PortScanner(self.outer_instance, ip, self.open_ports, self.portstart, self.portend, self.extra_ports)
-                    port_scanner.start()
+            # with Progress() as progress:
+            # task = progress.add_task("[cyan]Scanning IPs...", total=len(self.ip_data.ip_list))
+            for ip in self.ip_data.ip_list:
+                # progress.update(task, advance=1)
+                port_scanner = self.outer_instance.PortScanner(self.outer_instance, ip, self.open_ports, self.portstart, self.portend, self.extra_ports)
+                port_scanner.start()
 
             self.all_ports = sorted(list(set(port for ports in self.open_ports.values() for port in ports)))
             alive_ips = set(self.ip_data.ip_list)
@@ -456,8 +456,8 @@ class NetworkScanner:
             Calculates the total and alive host counts.
             """
             try:
-                # self.all_known_hosts_count = self.df.shape[0] 
-                self.all_known_hosts_count = self.df[self.df['MAC Address'] != 'STANDALONE'].shape[0] 
+                # self.all_known_hosts_count = self.df.shape[0]
+                self.all_known_hosts_count = self.df[self.df['MAC Address'] != 'STANDALONE'].shape[0]
                 self.alive_hosts_count = self.df[self.df['Alive'] == 1].shape[0]
             except Exception as e:
                 self.logger.error(f"Error in calculate_hosts_counts: {e}")
@@ -486,12 +486,12 @@ class NetworkScanner:
                 self.read_csv()
                 self.calculate_open_ports()
                 self.calculate_hosts_counts()
-                self.save_results()
+                # self.save_results()
                 self.logger.info("Livestatus updated")
                 self.logger.info(f"Results saved to {self.output_csv_path}")
             except Exception as e:
                 self.logger.error(f"Error in update_livestatus: {e}")
-        
+
         def clean_scan_results(self, scan_results_dir):
             """
             Cleans up old scan result files, keeping only the most recent ones.
@@ -522,21 +522,21 @@ class NetworkScanner:
 
             alive_macs = set(ip_data.mac_list)
 
-            table = Table(title="Scan Results", show_lines=True)
-            table.add_column("IP", style="cyan", no_wrap=True)
-            table.add_column("Hostname", style="cyan", no_wrap=True)
-            table.add_column("Alive", style="cyan", no_wrap=True)
-            table.add_column("MAC Address", style="cyan", no_wrap=True)
-            for port in all_ports:
-                table.add_column(f"{port}", style="green")
+            # table = Table(title="Scan Results", show_lines=True)
+            # table.add_column("IP", style="cyan", no_wrap=True)
+            # table.add_column("Hostname", style="cyan", no_wrap=True)
+            # table.add_column("Alive", style="cyan", no_wrap=True)
+            # table.add_column("MAC Address", style="cyan", no_wrap=True)
+            # for port in all_ports:
+            #     table.add_column(f"{port}", style="green")
 
             netkb_data = []
             for ip, ports, hostname, mac in zip(ip_data.ip_list, open_ports.values(), ip_data.hostname_list, ip_data.mac_list):
                 if self.blacklistcheck and (mac in self.mac_scan_blacklist or ip in self.ip_scan_blacklist):
                     continue
                 alive = '1' if mac in alive_macs else '0'
-                row = [ip, hostname, alive, mac] + [Text(str(port), style="green bold") if port in ports else Text("", style="on red") for port in all_ports]
-                table.add_row(*row)
+                # row = [ip, hostname, alive, mac] + [Text(str(port), style="green bold") if port in ports else Text("", style="on red") for port in all_ports]
+                # table.add_row(*row)
                 netkb_data.append([mac, ip, hostname, ports])
 
             with self.lock:
@@ -551,8 +551,8 @@ class NetworkScanner:
 
             self.update_netkb(netkbfile, netkb_data, alive_macs)
 
-            if self.displaying_csv:
-                self.display_csv(csv_result_file)
+            # if self.displaying_csv:
+            #     self.display_csv(csv_result_file)
 
             source_csv_path = self.shared_data.netkbfile
             output_csv_path = self.shared_data.livestatusfile

