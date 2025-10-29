@@ -1,5 +1,5 @@
 import os
-# import pandas as pd
+import pandas as pd
 import threading
 import logging
 import time
@@ -50,10 +50,10 @@ class FTPConnector:
     """
     def __init__(self, shared_data):
         self.shared_data = shared_data
-        # self.scan = pd.read_csv(shared_data.netkbfile)
+        self.scan = pd.read_csv(shared_data.netkbfile)
 
-        # if "Ports" not in self.scan.columns:
-        #     self.scan["Ports"] = None
+        if "Ports" not in self.scan.columns:
+            self.scan["Ports"] = None
         self.scan = self.scan[self.scan["Ports"].str.contains("21", na=False)]
 
         self.users = open(shared_data.usersfile, "r").read().splitlines()
@@ -107,8 +107,8 @@ class FTPConnector:
                 with self.lock:
                     self.results.append([mac_address, adresse_ip, hostname, user, password, port])
                     logger.success(f"Found credentials for IP: {adresse_ip} | User: {user}")
-                    # self.save_results()
-                    # self.removeduplicates()
+                    self.save_results()
+                    self.removeduplicates()
                     success_flag[0] = True
             self.queue.task_done()
 

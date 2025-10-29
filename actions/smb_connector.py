@@ -2,7 +2,7 @@
 smb_connector.py - This script performs a brute force attack on SMB services (port 445) to find accessible shares using various user credentials. It logs the results of successful connections.
 """
 import os
-# import pandas as pd
+import pandas as pd
 import threading
 import logging
 import time

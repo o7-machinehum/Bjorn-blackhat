@@ -3,7 +3,7 @@
 # It scans for vulnerabilities on various ports and saves the results and progress.
 
 import os
-# import pandas as pd
+import pandas as pd
 import subprocess
 import logging
 from datetime import datetime
@@ -28,8 +28,8 @@ class NmapVulnScanner:
     def __init__(self, shared_data):
         self.shared_data = shared_data
         self.scan_results = []
-        # self.summary_file = self.shared_data.vuln_summary_file
-        # self.create_summary_file()
+        self.summary_file = self.shared_data.vuln_summary_file
+        self.create_summary_file()
         logger.debug("NmapVulnScanner initialized.")
 
     def create_summary_file(self):
@@ -79,7 +79,7 @@ class NmapVulnScanner:
             combined_result += result.stdout
 
             vulnerabilities = self.parse_vulnerabilities(result.stdout)
-            # self.update_summary_file(ip, hostname, mac, ",".join(ports), vulnerabilities)
+            self.update_summary_file(ip, hostname, mac, ",".join(ports), vulnerabilities)
         except Exception as e:
             logger.error(f"Error scanning {ip}: {e}")
             success = False  # Mark as failed if an error occurs
