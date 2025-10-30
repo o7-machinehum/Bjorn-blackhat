@@ -7,7 +7,7 @@ import subprocess
 import logging
 import time
 from threading import Timer
-# from rich.console import Console
+from rich.console import Console
 from shared import SharedData
 from logger import Logger
 

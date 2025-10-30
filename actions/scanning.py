@@ -12,10 +12,10 @@ import time
 import glob
 import logging
 from datetime import datetime
-# from rich.console import Console
-# from rich.table import Table
-# from rich.text import Text
-# from rich.progress import Progress
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
+from rich.progress import Progress
 from getmac import get_mac_address as gma
 from shared import SharedData
 from logger import Logger
@@ -42,7 +42,7 @@ class NetworkScanner:
         self.blacklistcheck = shared_data.blacklistcheck
         self.mac_scan_blacklist = shared_data.mac_scan_blacklist
         self.ip_scan_blacklist = shared_data.ip_scan_blacklist
-        # self.console = Console()
+        self.console = Console()
         self.lock = threading.Lock()
         self.currentdir = shared_data.currentdir
         self.semaphore = threading.Semaphore(200)  # Limit the number of active threads to 20
@@ -169,7 +169,7 @@ class NetworkScanner:
                     mac, ip, hostname, ports = data
                     if not mac or mac == "STANDALONE" or ip == "STANDALONE" or hostname == "STANDALONE":
                         continue
-
+                    
                     # Check if MAC address is "00:00:00:00:00:00"
                     if mac == "00:00:00:00:00:00":
                         continue
@@ -233,7 +233,7 @@ class NetworkScanner:
         """
         with self.lock:
             try:
-                # table = Table(title=f"Contents of {file_path}", show_lines=True)
+                table = Table(title=f"Contents of {file_path}", show_lines=True)
                 with open(file_path, 'r') as file:
                     reader = csv.reader(file)
                     headers = next(reader)
@@ -410,12 +410,12 @@ class NetworkScanner:
             time.sleep(7)
             self.ip_data = self.outer_instance.GetIpFromCsv(self.outer_instance, self.csv_scan_file)
             self.open_ports = {ip: [] for ip in self.ip_data.ip_list}
-            # with Progress() as progress:
-            # task = progress.add_task("[cyan]Scanning IPs...", total=len(self.ip_data.ip_list))
-            for ip in self.ip_data.ip_list:
-                # progress.update(task, advance=1)
-                port_scanner = self.outer_instance.PortScanner(self.outer_instance, ip, self.open_ports, self.portstart, self.portend, self.extra_ports)
-                port_scanner.start()
+            with Progress() as progress:
+                task = progress.add_task("[cyan]Scanning IPs...", total=len(self.ip_data.ip_list))
+                for ip in self.ip_data.ip_list:
+                    progress.update(task, advance=1)
+                    port_scanner = self.outer_instance.PortScanner(self.outer_instance, ip, self.open_ports, self.portstart, self.portend, self.extra_ports)
+                    port_scanner.start()
 
             self.all_ports = sorted(list(set(port for ports in self.open_ports.values() for port in ports)))
             alive_ips = set(self.ip_data.ip_list)
@@ -456,8 +456,8 @@ class NetworkScanner:
             Calculates the total and alive host counts.
             """
             try:
-                self.all_known_hosts_count = self.df.shape[0]
-                self.all_known_hosts_count = self.df[self.df['MAC Address'] != 'STANDALONE'].shape[0]
+                # self.all_known_hosts_count = self.df.shape[0] 
+                self.all_known_hosts_count = self.df[self.df['MAC Address'] != 'STANDALONE'].shape[0] 
                 self.alive_hosts_count = self.df[self.df['Alive'] == 1].shape[0]
             except Exception as e:
                 self.logger.error(f"Error in calculate_hosts_counts: {e}")
@@ -491,7 +491,7 @@ class NetworkScanner:
                 self.logger.info(f"Results saved to {self.output_csv_path}")
             except Exception as e:
                 self.logger.error(f"Error in update_livestatus: {e}")
-
+        
         def clean_scan_results(self, scan_results_dir):
             """
             Cleans up old scan result files, keeping only the most recent ones.

@@ -5,7 +5,7 @@ steal_files_ftp.py - This script connects to FTP servers using provided credenti
 import os
 import logging
 import time
-# from rich.console import Console
+from rich.console import Console
 from threading import Timer
 from ftplib import FTP
 from shared import SharedData

