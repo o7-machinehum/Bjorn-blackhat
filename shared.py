@@ -21,7 +21,7 @@ import time
 import csv
 import logging
 import subprocess
-# from PIL import Image, ImageFont
+from PIL import Image, ImageFont
 from logger import Logger
 from epd_helper import EPDHelper
 
@@ -243,33 +243,28 @@ class SharedData:
     #         logger.error(f"Error initializing EPD display: {e}")
     #         raise
     def initialize_epd_display(self):
-        """Initialize the e-paper display."""
+        """Initialize the framebuffer display."""
         try:
-            logger.info("Initializing EPD display...")
+            logger.info("Initializing framebuffer display...")
             time.sleep(1)
-            self.epd_helper = EPDHelper(self.config["epd_type"])
-            self.epd_helper = EPDHelper(self.epd_type)
-            if self.config["epd_type"] == "epd2in7":
-                logger.info("EPD type: epd2in7 screen reversed")
-                self.screen_reversed = False
-                self.web_screen_reversed = False
-            elif self.config["epd_type"] == "epd2in13_V2":
-                logger.info("EPD type: epd2in13_V2 screen reversed")
-                self.screen_reversed = False
-                self.web_screen_reversed = False
-            elif self.config["epd_type"] == "epd2in13_V3":
-                logger.info("EPD type: epd2in13_V3 screen reversed")
-                self.screen_reversed = True
-                self.web_screen_reversed = True
-            elif self.config["epd_type"] == "epd2in13_V4":
-                logger.info("EPD type: epd2in13_V4 screen reversed")
-                self.screen_reversed = True
-                self.web_screen_reversed = True
+            self.epd_helper = EPDHelper(self.config.get("epd_type"))
+            self.screen_reversed = bool(self.config.get("screen_reversed", False))
+            self.web_screen_reversed = bool(self.config.get("web_screen_reversed", False))
             self.epd_helper.init_full_update()
-            self.width, self.height = self.epd_helper.epd.width, self.epd_helper.epd.height
-            logger.info(f"EPD {self.config['epd_type']} initialized with size: {self.width}x{self.height}")
+            self.fb_width, self.fb_height = self.epd_helper.epd.width, self.epd_helper.epd.height
+            # Keep the drawing canvas at reference aspect ratio to avoid distortion.
+            self.width, self.height = self.ref_width, self.ref_height
+            self.scale_factor_x = 1
+            self.scale_factor_y = 1
+            self.text_frame_top = 88
+            self.text_frame_bottom = 159
+            self.load_fonts()
+            self.load_images()
+            logger.info(
+                f"Framebuffer initialized: fb={self.fb_width}x{self.fb_height}, canvas={self.width}x{self.height}"
+            )
         except Exception as e:
-            logger.error(f"Error initializing EPD display: {e}")
+            logger.error(f"Error initializing framebuffer display: {e}")
             raise
 
     def initialize_variables(self):

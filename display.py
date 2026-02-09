@@ -37,8 +37,8 @@ class Display:
         self.shared_data.bjornstatustext2 = "Awakening..."
         self.commentaire_ia = Commentaireia()
         self.semaphore = threading.Semaphore(10)
-        self.screen_reversed = self.shared_data.screen_reversed
-        self.web_screen_reversed = self.shared_data.web_screen_reversed
+        self.screen_reversed = getattr(self.shared_data, "screen_reversed", False)
+        self.web_screen_reversed = getattr(self.shared_data, "web_screen_reversed", False)
 
         # Define frise positions for different display types
         self.frise_positions = {
@@ -53,8 +53,19 @@ class Display:
         }
 
         try:
+            if not hasattr(self.shared_data, "epd_helper"):
+                self.shared_data.initialize_epd_display()
+            self.screen_reversed = getattr(self.shared_data, "screen_reversed", False)
+            self.web_screen_reversed = getattr(self.shared_data, "web_screen_reversed", False)
             self.epd_helper = self.shared_data.epd_helper
             self.epd_helper.init_partial_update()
+            if not hasattr(self.shared_data, "font_arial9"):
+                self.shared_data.load_fonts()
+            if not hasattr(self.shared_data, "bjorn1"):
+                self.shared_data.load_images()
+            if not hasattr(self.shared_data, "scale_factor_x"):
+                self.shared_data.scale_factor_x = self.shared_data.width / self.shared_data.ref_width if self.shared_data.ref_width else 1
+                self.shared_data.scale_factor_y = self.shared_data.height / self.shared_data.ref_height if self.shared_data.ref_height else 1
             logger.info("Display initialization complete.")
         except Exception as e:
             logger.error(f"Error during display initialization: {e}")
@@ -363,9 +374,11 @@ def handle_exit_display(signum, frame, display_thread):
     shared_data.display_should_exit = True
     logger.info("Exit signal received. Waiting for the main loop to finish...")
     try:
-        if main_loop and main_loop.epd:
-            main_loop.epd.init(main_loop.epd.sleep)
-            main_loop.epd.Dev_exit()
+        if main_loop and hasattr(main_loop, "epd_helper"):
+            try:
+                main_loop.epd_helper.clear()
+            except Exception:
+                pass
     except Exception as e:
         logger.error(f"Error while closing the display: {e}")
     display_thread.join()
