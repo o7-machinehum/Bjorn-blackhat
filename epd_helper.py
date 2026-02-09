@@ -19,13 +19,23 @@ class EPDHelper:
     def __init__(self, epd_type=None, fb_path="/dev/fb0"):
         # epd_type is kept for compatibility but unused for framebuffer output.
         self.fb_path = os.environ.get("BJORN_FB", fb_path)
-        self.width, self.height = self._read_fb_size()
-        self.bits_per_pixel = self._read_fb_bpp()
-        self.line_length = self._read_fb_stride()
+        self.width = 0
+        self.height = 0
+        self.bits_per_pixel = 0
+        self.line_length = 0
         self.fb_fd = None
         self.fb_map = None
-        self.epd = _FBInfo(self.width, self.height)
-        self._open_fb()
+        self.enabled = False
+        try:
+            self.width, self.height = self._read_fb_size()
+            self.bits_per_pixel = self._read_fb_bpp()
+            self.line_length = self._read_fb_stride()
+            self.epd = _FBInfo(self.width, self.height)
+            self._open_fb()
+            self.enabled = True
+        except Exception as e:
+            logger.warning(f"Framebuffer unavailable ({self.fb_path}): {e}. Continuing without local display.")
+            self.epd = _FBInfo(0, 0)
 
     def _read_fb_size(self):
         size_path = "/sys/class/graphics/fb0/virtual_size"
@@ -73,13 +83,17 @@ class EPDHelper:
 
     def init_full_update(self):
         # No-op for framebuffer output.
-        logger.info("Framebuffer full update initialization complete.")
+        if self.enabled:
+            logger.info("Framebuffer full update initialization complete.")
 
     def init_partial_update(self):
         # No-op for framebuffer output.
-        logger.info("Framebuffer partial update initialization complete.")
+        if self.enabled:
+            logger.info("Framebuffer partial update initialization complete.")
 
     def display_partial(self, image):
+        if not self.enabled or self.fb_map is None:
+            return
         try:
             frame = self._image_to_framebuffer(image)
             self.fb_map.seek(0)
@@ -87,16 +101,17 @@ class EPDHelper:
             self.fb_map.flush()
             logger.info("Framebuffer update complete.")
         except Exception as e:
-            logger.error(f"Error during framebuffer update: {e}")
-            raise
+            logger.warning(f"Framebuffer write failed; disabling local display output: {e}")
+            self.enabled = False
 
     def clear(self, color=(255, 255, 255)):
+        if not self.enabled:
+            return
         try:
             image = Image.new("RGB", (self.width, self.height), color)
             self.display_partial(image)
         except Exception as e:
-            logger.error(f"Error clearing framebuffer: {e}")
-            raise
+            logger.warning(f"Error clearing framebuffer: {e}")
 
     def _image_to_framebuffer(self, image):
         rgb = self._prepare_frame_image(image)
